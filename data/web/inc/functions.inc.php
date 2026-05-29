@@ -949,10 +949,16 @@ function update_sogo_static_view($mailbox = null) {
     }
   }
 
-  // generate random password for sogo to deny direct login
-  $random_password = base64_encode(openssl_random_pseudo_bytes(24));
-  $random_salt = base64_encode(openssl_random_pseudo_bytes(16));
-  $random_hash = '{SSHA256}' . base64_encode(hash('sha256', base64_decode($password) . $salt, true) . $salt);
+  // Get SSO password hash for SOGo to allow SSO but deny direct login
+  if (file_exists('/etc/sogo-sso/sogo-sso.pass')) {
+    $sogo_sso_pass = trim(file_get_contents('/etc/sogo-sso/sogo-sso.pass'));
+    $random_hash = '{BLF-CRYPT}' . password_hash($sogo_sso_pass, PASSWORD_BCRYPT, ['cost' => 10]);
+  } else {
+    // Fallback if sogo-sso.pass is somehow missing
+    $random_password = base64_encode(openssl_random_pseudo_bytes(24));
+    $random_salt = base64_encode(openssl_random_pseudo_bytes(16));
+    $random_hash = '{SSHA256}' . base64_encode(hash('sha256', $random_password . $random_salt, true) . $random_salt);
+  }
 
   $subquery = "GROUP BY mailbox.username";
   if ($mailbox_exists) {
